@@ -1,0 +1,41 @@
+.map-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.popup-content {
+  font-size: 13px;
+  min-width: 200px;
+}
+
+.popup-content strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.popup-content p {
+  margin: 4px 0;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.popup-time {
+  font-weight: 600 !important;
+  color: var(--primary) !important;
+  margin-top: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .map-view {
+    flex: 1;
+    min-height: 40vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-view {
+    min-height: 35vh;
+  }
+}
