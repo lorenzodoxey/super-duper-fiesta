@@ -16,17 +16,6 @@ interface SidePanelProps {
   onDistanceUnitChange: (unit: 'km' | 'mi') => void;
 }
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle size={16} className="status-completed" />;
-    case 'cancelled':
-      return <XCircle size={16} className="status-cancelled" />;
-    default:
-      return <AlertCircle size={16} className="status-scheduled" />;
-  }
-};
-
 export default function SidePanel({
   appointments,
   selectedAppointment,

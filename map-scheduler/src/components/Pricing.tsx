@@ -6,7 +6,7 @@ interface PricingProps {
   onClose: () => void;
 }
 
-export default function Pricing({ repId, onClose }: PricingProps) {
+export default function Pricing({ onClose }: PricingProps) {
   const plans = [
     {
       name: 'Starter',
