@@ -50,7 +50,6 @@ export default function App() {
   const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>('mi');
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
-  const [_loadingAppointments, setLoadingAppointments] = useState(false);
 
   // Load appointments from Firebase when rep ID is set
   useEffect(() => {
