@@ -92,12 +92,19 @@ export async function addAppointment(
   repId: string,
   appointment: Omit<Appointment, 'id'>
 ): Promise<string | null> {
+  console.log('[Firebase] addAppointment called', { repId, appointment });
+  
   if (!repId || typeof repId !== 'string') {
+    console.error('[Firebase] Invalid repId', repId);
     logError('addAppointment', 'Invalid repId', { repId });
     return null;
   }
 
   if (!appointment.name || !appointment.address) {
+    console.error('[Firebase] Missing required fields', { 
+      name: appointment.name, 
+      address: appointment.address 
+    });
     logError('addAppointment', 'Missing required fields', { 
       appointment: { name: !!appointment.name, address: !!appointment.address }
     });
@@ -105,16 +112,18 @@ export async function addAppointment(
   }
 
   try {
+    console.log('[Firebase] Calling addDoc...');
     const docRef = await addDoc(collection(db, 'appointments'), {
       repId,
       ...appointment,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    logError('addAppointment', 'success', { appointmentId: docRef.id, repId });
+    console.log('[Firebase] addDoc success! ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     const errorInfo = parseFirebaseError(error);
+    console.error('[Firebase] addDoc failed:', error);
     logError('addAppointment', error, { repId, errorCode: errorInfo.code });
     return null;
   }
