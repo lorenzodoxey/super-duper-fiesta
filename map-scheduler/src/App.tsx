@@ -100,26 +100,36 @@ export default function App() {
       });
 
   const addAppointmentHandler = useCallback((appointment: Omit<Appointment, 'id'>) => {
+    console.log('addAppointmentHandler called with:', appointment);
+    console.log('Current repId:', repId);
+    
     const addToFirebase = async () => {
       if (!repId) {
+        console.error('No repId found!');
         setError('Please sign in first');
         return;
       }
       
       setError(null);
       try {
+        console.log('Calling addAppointment Firebase function...');
         const id = await addAppointment(repId, appointment);
+        console.log('addAppointment returned id:', id);
+        
         if (id) {
           const newAppointment: Appointment = {
             ...appointment,
             id,
           };
+          console.log('Adding appointment to state:', newAppointment);
           setAppointments(prev => [...prev, newAppointment]);
           setSelectedId(id);
           setSelectedDate(appointment.date);
           setShowForm(false);
           setPendingLocation(null);
+          console.log('Appointment saved successfully!');
         } else {
+          console.error('addAppointment returned null');
           setError('Failed to save appointment. Please try again.');
         }
       } catch (error) {
