@@ -113,12 +113,30 @@ export async function addAppointment(
 
   try {
     console.log('[Firebase] Calling addDoc...');
-    const docRef = await addDoc(collection(db, 'appointments'), {
-      repId,
-      ...appointment,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+
+    // Guard against a hanging write by timing out after 10s so the UI can recover.
+    const timeout = new Promise<null>((resolve, reject) => {
+      const id = setTimeout(() => {
+        clearTimeout(id);
+        reject(new Error('Firestore write timeout after 10s'));
+      }, 10000);
     });
+
+    const docRef = await Promise.race([
+      addDoc(collection(db, 'appointments'), {
+        repId,
+        ...appointment,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+      timeout,
+    ] as const);
+
+    // If timeout wins, docRef will be null and the catch below will fire.
+    if (!docRef) {
+      throw new Error('Unknown Firestore write failure');
+    }
+
     console.log('[Firebase] addDoc success! ID:', docRef.id);
     return docRef.id;
   } catch (error) {
