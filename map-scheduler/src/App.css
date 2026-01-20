@@ -162,3 +162,66 @@
     min-height: 40px;
   }
 }
+
+/* Error and Loading States */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 1.5rem;
+  background: #fee;
+  border-bottom: 2px solid #f88;
+  color: #c33;
+  font-weight: 500;
+  z-index: 20;
+  animation: slideDown 0.3s ease;
+}
+
+.error-banner svg {
+  flex-shrink: 0;
+  color: #d44;
+}
+
+.error-banner span {
+  flex: 1;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  color: #c33;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.error-close:hover {
+  color: #a22;
+}
+
+.loading-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 1.5rem;
+  background: rgba(100, 150, 200, 0.1);
+  border-bottom: 1px solid rgba(100, 150, 200, 0.2);
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 19;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

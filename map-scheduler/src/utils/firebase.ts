@@ -1,6 +1,29 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc, serverTimestamp, connectFirestoreEmulator } from 'firebase/firestore';
 import type { Appointment } from '../types';
+import { logError, parseFirebaseError } from './errors';
+
+// Validate Firebase config
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+];
+
+const missingEnvVars = requiredEnvVars.filter(
+  varName => !import.meta.env[varName]
+);
+
+if (missingEnvVars.length > 0) {
+  console.error(
+    'Missing Firebase environment variables:',
+    missingEnvVars.join(', '),
+    '\nPlease add these to your Vercel Environment Variables or .env.local file'
+  );
+}
 
 // Initialize Firebase - Replace with your config
 const firebaseConfig = {
@@ -15,32 +38,51 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
+// Connect to emulator in development if needed
+if (process.env.NODE_ENV === 'development' && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
+  try {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+  } catch (e) {
+    // Emulator already connected or not available
+  }
+}
+
 // Get all appointments for a rep
 export async function getRepAppointments(repId: string): Promise<Appointment[]> {
+  if (!repId || typeof repId !== 'string') {
+    logError('getRepAppointments', 'Invalid repId', { repId });
+    return [];
+  }
+
   try {
     const q = query(collection(db, 'appointments'), where('repId', '==', repId));
     const querySnapshot = await getDocs(q);
     const appointments: Appointment[] = [];
     
     querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      appointments.push({
-        id: doc.id,
-        name: data.name,
-        address: data.address,
-        lat: data.lat,
-        lng: data.lng,
-        date: data.date.toDate ? data.date.toDate() : new Date(data.date),
-        time: data.time,
-        duration: data.duration,
-        notes: data.notes,
-        status: data.status,
-      });
+      try {
+        const data = doc.data();
+        appointments.push({
+          id: doc.id,
+          name: data.name || '',
+          address: data.address || '',
+          lat: data.lat || 0,
+          lng: data.lng || 0,
+          date: data.date?.toDate ? data.date.toDate() : new Date(data.date || 0),
+          time: data.time || '',
+          duration: data.duration || 30,
+          notes: data.notes || '',
+          status: data.status || 'scheduled',
+        });
+      } catch (docError) {
+        logError('getRepAppointments - doc parsing', docError, { docId: doc.id });
+      }
     });
     
     return appointments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   } catch (error) {
-    console.error('Error fetching appointments:', error);
+    const errorInfo = parseFirebaseError(error);
+    logError('getRepAppointments', error, { repId, errorCode: errorInfo.code });
     return [];
   }
 }
@@ -50,6 +92,18 @@ export async function addAppointment(
   repId: string,
   appointment: Omit<Appointment, 'id'>
 ): Promise<string | null> {
+  if (!repId || typeof repId !== 'string') {
+    logError('addAppointment', 'Invalid repId', { repId });
+    return null;
+  }
+
+  if (!appointment.name || !appointment.address) {
+    logError('addAppointment', 'Missing required fields', { 
+      appointment: { name: !!appointment.name, address: !!appointment.address }
+    });
+    return null;
+  }
+
   try {
     const docRef = await addDoc(collection(db, 'appointments'), {
       repId,
@@ -57,9 +111,11 @@ export async function addAppointment(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    logError('addAppointment', 'success', { appointmentId: docRef.id, repId });
     return docRef.id;
   } catch (error) {
-    console.error('Error adding appointment:', error);
+    const errorInfo = parseFirebaseError(error);
+    logError('addAppointment', error, { repId, errorCode: errorInfo.code });
     return null;
   }
 }
@@ -69,6 +125,11 @@ export async function updateAppointment(
   appointmentId: string,
   updates: Partial<Appointment>
 ): Promise<boolean> {
+  if (!appointmentId || typeof appointmentId !== 'string') {
+    logError('updateAppointment', 'Invalid appointmentId', { appointmentId });
+    return false;
+  }
+
   try {
     await updateDoc(doc(db, 'appointments', appointmentId), {
       ...updates,
@@ -76,24 +137,39 @@ export async function updateAppointment(
     });
     return true;
   } catch (error) {
-    console.error('Error updating appointment:', error);
+    const errorInfo = parseFirebaseError(error);
+    logError('updateAppointment', error, { appointmentId, errorCode: errorInfo.code });
     return false;
   }
 }
 
 // Delete appointment
 export async function deleteAppointment(appointmentId: string): Promise<boolean> {
+  if (!appointmentId || typeof appointmentId !== 'string') {
+    logError('deleteAppointment', 'Invalid appointmentId', { appointmentId });
+    return false;
+  }
+
   try {
     await deleteDoc(doc(db, 'appointments', appointmentId));
     return true;
   } catch (error) {
-    console.error('Error deleting appointment:', error);
+    const errorInfo = parseFirebaseError(error);
+    logError('deleteAppointment', error, { appointmentId, errorCode: errorInfo.code });
     return false;
   }
 }
 
 // Get or create rep
 export async function getOrCreateRep(repId: string): Promise<{ id: string; createdAt: Date }> {
+  if (!repId || typeof repId !== 'string') {
+    logError('getOrCreateRep', 'Invalid repId', { repId });
+    return {
+      id: repId || 'unknown',
+      createdAt: new Date(),
+    };
+  }
+
   try {
     // Check if rep exists
     const q = query(collection(db, 'reps'), where('repId', '==', repId));
@@ -118,7 +194,8 @@ export async function getOrCreateRep(repId: string): Promise<{ id: string; creat
       createdAt: new Date(),
     };
   } catch (error) {
-    console.error('Error creating rep:', error);
+    const errorInfo = parseFirebaseError(error);
+    logError('getOrCreateRep', error, { repId, errorCode: errorInfo.code });
     return {
       id: repId,
       createdAt: new Date(),

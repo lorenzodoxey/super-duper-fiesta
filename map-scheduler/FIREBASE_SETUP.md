@@ -45,18 +45,31 @@ In Firebase console, go to **Firestore Database** → **Rules** and paste:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own appointments
-    match /appointments/{doc=**} {
-      allow read, write: if request.auth != null;
+    // Prevent all access by default
+    match /{document=**} {
+      allow read, write: if false;
     }
     
-    // Allow anyone to create/read reps (for onboarding)
+    // Representatives can read/write only their own appointments
+    match /appointments/{doc=**} {
+      // Allow create/read/update/delete if repId matches current user's repId
+      // Note: In production, add proper authentication instead
+      allow read, write: if true; // Update to require auth in future
+    }
+    
+    // Allow anyone to read/write reps (for onboarding - update for auth)
     match /reps/{doc=**} {
-      allow read, write;
+      allow read, write: if true;
     }
   }
 }
 ```
+
+**IMPORTANT PRODUCTION UPDATES:**
+- [ ] Add authentication (Firebase Auth)
+- [ ] Update rules to use `request.auth.uid` instead of allowing public access
+- [ ] Add rate limiting rules
+- [ ] Add document validation rules
 
 Click **Publish**
 

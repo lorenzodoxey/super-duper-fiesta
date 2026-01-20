@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Calendar, LogOut } from 'lucide-react';
+import { Calendar, LogOut, AlertCircle } from 'lucide-react';
 import './App.css';
 import MapView from './components/MapView';
 import SidePanel from './components/SidePanel';
@@ -9,6 +9,7 @@ import RepSelector from './components/RepSelector';
 import Pricing from './components/Pricing';
 import type { Appointment } from './types';
 import { getRepAppointments, addAppointment, updateAppointment, deleteAppointment, getOrCreateRep } from './utils/firebase';
+import { parseFirebaseError } from './utils/errors';
 
 export default function App() {
   const [repId, setRepId] = useState<string | null>(() => {
@@ -50,12 +51,16 @@ export default function App() {
   const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>('mi');
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
 
   // Load appointments from Firebase when rep ID is set
   useEffect(() => {
     if (!repId) return;
 
     const loadAppointments = async () => {
+      setLoadingAppointments(true);
+      setError(null);
       try {
         // Initialize rep in Firebase
         await getOrCreateRep(repId);
@@ -71,7 +76,11 @@ export default function App() {
           }
         }
       } catch (error) {
+        const errorInfo = parseFirebaseError(error);
+        setError(errorInfo.userMessage);
         console.error('Error loading appointments:', error);
+      } finally {
+        setLoadingAppointments(false);
       }
     };
 
@@ -92,8 +101,12 @@ export default function App() {
 
   const addAppointmentHandler = useCallback((appointment: Omit<Appointment, 'id'>) => {
     const addToFirebase = async () => {
-      if (!repId) return;
+      if (!repId) {
+        setError('Please sign in first');
+        return;
+      }
       
+      setError(null);
       try {
         const id = await addAppointment(repId, appointment);
         if (id) {
@@ -106,8 +119,12 @@ export default function App() {
           setSelectedDate(appointment.date);
           setShowForm(false);
           setPendingLocation(null);
+        } else {
+          setError('Failed to save appointment. Please try again.');
         }
       } catch (error) {
+        const errorInfo = parseFirebaseError(error);
+        setError(errorInfo.userMessage);
         console.error('Error adding appointment:', error);
       }
     };
@@ -117,12 +134,19 @@ export default function App() {
 
   const updateAppointmentHandler = useCallback((id: string, updates: Partial<Appointment>) => {
     const updateInFirebase = async () => {
+      setError(null);
       try {
-        await updateAppointment(id, updates);
-        setAppointments(prev =>
-          prev.map(apt => (apt.id === id ? { ...apt, ...updates } : apt))
-        );
+        const success = await updateAppointment(id, updates);
+        if (success) {
+          setAppointments(prev =>
+            prev.map(apt => (apt.id === id ? { ...apt, ...updates } : apt))
+          );
+        } else {
+          setError('Failed to update appointment. Please try again.');
+        }
       } catch (error) {
+        const errorInfo = parseFirebaseError(error);
+        setError(errorInfo.userMessage);
         console.error('Error updating appointment:', error);
       }
     };
@@ -132,13 +156,20 @@ export default function App() {
 
   const deleteAppointmentHandler = useCallback((id: string) => {
     const deleteFromFirebase = async () => {
+      setError(null);
       try {
-        await deleteAppointment(id);
-        setAppointments(prev => prev.filter(apt => apt.id !== id));
-        if (selectedId === id) {
-          setSelectedId(appointments.find(a => a.id !== id)?.id || null);
+        const success = await deleteAppointment(id);
+        if (success) {
+          setAppointments(prev => prev.filter(apt => apt.id !== id));
+          if (selectedId === id) {
+            setSelectedId(appointments.find(a => a.id !== id)?.id || null);
+          }
+        } else {
+          setError('Failed to delete appointment. Please try again.');
         }
       } catch (error) {
+        const errorInfo = parseFirebaseError(error);
+        setError(errorInfo.userMessage);
         console.error('Error deleting appointment:', error);
       }
     };
@@ -179,6 +210,26 @@ export default function App() {
           <LogOut size={18} />
         </button>
       </div>
+
+      {error && (
+        <div className="error-banner" role="alert">
+          <AlertCircle size={20} />
+          <span>{error}</span>
+          <button 
+            className="error-close"
+            onClick={() => setError(null)}
+            aria-label="Close error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {loadingAppointments && (
+        <div className="loading-banner">
+          <span>Loading your appointments...</span>
+        </div>
+      )}
       
       <div className="app-main">
         <MapView
