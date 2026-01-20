@@ -25,6 +25,16 @@ if (missingEnvVars.length > 0) {
   );
 }
 
+// Log what we're loading (for debugging, but hide the actual key values)
+console.log('[Firebase] Loading config:', {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ? '***' + import.meta.env.VITE_FIREBASE_API_KEY.slice(-4) : 'MISSING',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID ? import.meta.env.VITE_FIREBASE_APP_ID.split(':')[0] : 'MISSING',
+});
+
 // Initialize Firebase - Replace with your config
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -37,6 +47,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+console.log('[Firebase] Initialized with projectId:', firebaseConfig.projectId);
 
 // Connect to emulator in development if needed
 if (process.env.NODE_ENV === 'development' && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
