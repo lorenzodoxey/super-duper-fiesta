@@ -2,8 +2,9 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc, serverTimestamp, connectFirestoreEmulator } from 'firebase/firestore';
 import type { Appointment } from '../types';
 import { logError, parseFirebaseError } from './errors';
+import { rateLimiter, RATE_LIMITS } from './rateLimiter';
 
-// Validate Firebase config
+// Validate Fireba  se config
 const requiredEnvVars = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
@@ -65,6 +66,12 @@ export async function getRepAppointments(repId: string): Promise<Appointment[]> 
     return [];
   }
 
+  // Rate limit check
+  if (!rateLimiter.canMakeCall(`read-${repId}`, RATE_LIMITS.READ_APPOINTMENTS)) {
+    console.error('[Firebase] Rate limit hit for getRepAppointments');
+    throw new Error('Too many requests. Please wait a moment.');
+  }
+
   try {
     const q = query(collection(db, 'appointments'), where('repId', '==', repId));
     const querySnapshot = await getDocs(q);
@@ -120,6 +127,12 @@ export async function addAppointment(
       appointment: { name: !!appointment.name, address: !!appointment.address }
     });
     return null;
+  }
+
+  // Rate limit check
+  if (!rateLimiter.canMakeCall(`write-${repId}`, RATE_LIMITS.WRITE_APPOINTMENT)) {
+    console.error('[Firebase] Rate limit hit for addAppointment');
+    throw new Error('Too many save attempts. Please wait a moment.');
   }
 
   try {

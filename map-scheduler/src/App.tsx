@@ -58,15 +58,30 @@ export default function App() {
   useEffect(() => {
     if (!repId) return;
 
+    let cancelled = false;
+    let alreadyLoading = false;
+
     const loadAppointments = async () => {
+      // Prevent duplicate calls
+      if (alreadyLoading) {
+        console.warn('[App] Prevented duplicate load call');
+        return;
+      }
+      
+      alreadyLoading = true;
       setLoadingAppointments(true);
       setError(null);
+      
       try {
         // Initialize rep in Firebase
         await getOrCreateRep(repId);
         
+        if (cancelled) return;
+        
         // Load their appointments
         const firebaseAppointments = await getRepAppointments(repId);
+        
+        if (cancelled) return;
         
         // If they have appointments, use those. Otherwise, use demo data for first time
         if (firebaseAppointments.length > 0) {
@@ -76,15 +91,23 @@ export default function App() {
           }
         }
       } catch (error) {
+        if (cancelled) return;
         const errorInfo = parseFirebaseError(error);
         setError(errorInfo.userMessage);
         console.error('Error loading appointments:', error);
       } finally {
-        setLoadingAppointments(false);
+        if (!cancelled) {
+          setLoadingAppointments(false);
+        }
+        alreadyLoading = false;
       }
     };
 
     loadAppointments();
+    
+    return () => {
+      cancelled = true;
+    };
   }, [repId]);
 
   // Filter appointments by selected date or show all
@@ -103,7 +126,16 @@ export default function App() {
     console.log('addAppointmentHandler called with:', appointment);
     console.log('Current repId:', repId);
     
+    // Prevent multiple simultaneous submissions
+    let isSubmitting = false;
+    
     const addToFirebase = async () => {
+      if (isSubmitting) {
+        console.warn('[App] Prevented duplicate submission');
+        return;
+      }
+      
+      isSubmitting = true;
       if (!repId) {
         console.error('No repId found!');
         setError('Please sign in first');
@@ -136,6 +168,8 @@ export default function App() {
         const errorInfo = parseFirebaseError(error);
         setError(errorInfo.userMessage);
         console.error('Error adding appointment:', error);
+      } finally {
+        isSubmitting = false;
       }
     };
 
