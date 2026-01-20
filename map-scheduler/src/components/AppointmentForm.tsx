@@ -244,14 +244,18 @@ export default function AppointmentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted!', formData);
 
     if (!validateForm()) {
+      console.log('Validation failed', errors);
       return;
     }
 
+    console.log('Validation passed, submitting...');
     setLoading(true);
     try {
       const coords = selectedCoordsRef.current ?? await geocodeAddress(formData.address);
+      console.log('Geocoded coords:', coords);
 
       if (!coords) {
         setErrors([{ field: 'address', message: 'Could not find address' }]);
@@ -263,6 +267,18 @@ export default function AppointmentForm({
       const [y, m, d] = formData.date.split('-').map(Number);
       // Build local date to avoid timezone shifting a day backward
       const date = new Date(y, (m ?? 1) - 1, d ?? 1, hours ?? 0, minutes ?? 0, 0, 0);
+
+      console.log('Calling onSubmit with:', {
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        lat: coords.lat,
+        lng: coords.lng,
+        date,
+        time: formData.time,
+        duration: parseInt(formData.duration),
+        notes: formData.notes.trim(),
+        status: 'scheduled',
+      });
 
       onSubmit({
         name: formData.name.trim(),
@@ -276,6 +292,7 @@ export default function AppointmentForm({
         status: 'scheduled',
       });
     } catch (err) {
+      console.error('Error in form submission:', err);
       setErrors([{ field: 'form', message: 'Error creating appointment' }]);
     } finally {
       setLoading(false);
